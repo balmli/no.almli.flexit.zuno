@@ -22,7 +22,7 @@ Flexit SP 30 panel to Z-UNO.
 
 - Z-UNO, pin  9: to relay 1
 - Z-UNO, pin 10: to relay 2
-- Z-UNO, pin 11: to DS18B20 data ping
+- Z-UNO, pin 11: to DS18B20 data pin
 - Z-UNO, pin A1: to optocoupler 2
 - Z-UNO, pin A2: to optocoupler 3
 - Z-UNO, pin A3: to optocoupler 1
