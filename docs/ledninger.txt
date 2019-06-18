@@ -1,0 +1,28 @@
+
+# farg    pin fra høyre
+
+1 orange  8
+
+2 gul     7
+
+3 grønn   6
+
+8 svart   5
+
+7 hvit    4
+
+4 blå     3
+
+5 lilla   2
+
+6 grå     1
+
+
+white     temp adjustment
+blue      jord
+green
+brown
+yellow
+red
+white
+black
