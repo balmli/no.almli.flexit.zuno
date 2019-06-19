@@ -9,9 +9,13 @@
 #define HEATING_PIN         A3
 #define LED_PIN             LED_BUILTIN
 
-#define MIN_SWITCH_DURATION     1000
+#define RELAY_IN_1_PIN          18
+#define RELAY_IN_2_PIN          17
+#define FAN_LEVEL_OUT_1_PIN     PWM2
+#define FAN_LEVEL_OUT_2_PIN     PWM3
+#define HEATING_OUT_PIN         PWM4
+
 #define MIN_UPDATE_DURATION     30000
-#define DEFAULT_RELAY_DURATION  500
 #define LED_BLINK_DURATION      25
 
 OneWire ow(DS18B20_BUS_PIN);
@@ -25,9 +29,16 @@ byte number_of_sensors;
 word temperature[TEMP_SENSORS];
 word temperatureCalibration[TEMP_SENSORS];
 
-byte switchValue = 0;
-byte lastFanLevel = 0;
+byte switchValue = 1;
+byte lastFanLevel = 1;
+byte lastFanLevelReported = 1;
 byte lastHeating = 0;
+byte lastHeatingReported = 0;
+
+byte sp30FanLevel = 1;
+byte sp30Heating = 0;
+byte prevSP30r1 = LOW;
+byte prevSP30r2 = LOW;
 
 unsigned long lastChangedSwitch = 0;
 unsigned long fanRelayOnTimer = 0;
@@ -96,6 +107,13 @@ void setup() {
     pinMode(RELAY_1_PIN, OUTPUT);
     pinMode(RELAY_2_PIN, OUTPUT);
     pinMode(LED_PIN, OUTPUT);
+
+    pinMode(RELAY_IN_1_PIN, INPUT);
+    pinMode(RELAY_IN_2_PIN, INPUT);
+    pinMode(FAN_LEVEL_OUT_1_PIN, OUTPUT);
+    pinMode(FAN_LEVEL_OUT_2_PIN, OUTPUT);
+    pinMode(HEATING_OUT_PIN, OUTPUT);
+
     fetchConfig();
     number_of_sensors = ds18b20.findAllSensors(addresses);
 }
@@ -132,12 +150,12 @@ void fetchConfig() {
 
 void loop() {
     unsigned long timerNow = millis();
-    //handleSwitch(timerNow);
+    handleSwitch(timerNow);
     checkFanLevel(timerNow);
     checkHeating(timerNow);
     checkTemperatures(timerNow);
     ledBlinkOff(timerNow);
-    listConfig(timerNow);
+    //listConfig(timerNow);
 }
 
 void config_parameter_changed(byte param, word value) {
@@ -195,6 +213,38 @@ void ledBlinkOff(unsigned long timerNow) {
     }
 }
 
+void simulateSP30() {
+    delay(5);
+
+    // Fan level
+    byte r1 = digitalRead(RELAY_IN_1_PIN);
+    if (prevSP30r1 == LOW && r1 == HIGH) {
+        sp30FanLevel = sp30FanLevel + 1;
+        if (sp30FanLevel > 3) {
+            sp30FanLevel = 1;
+        }
+        Serial.print("sp30FanLevel: ");
+        Serial.println(sp30FanLevel);
+    }
+    if (r1 != prevSP30r1) {
+        prevSP30r1 = r1;
+        digitalWrite(FAN_LEVEL_OUT_1_PIN, sp30FanLevel == 2 ? HIGH : LOW);
+        digitalWrite(FAN_LEVEL_OUT_2_PIN, sp30FanLevel == 3 ? HIGH : LOW);
+    }
+
+    // Heating
+    byte r2 = digitalRead(RELAY_IN_2_PIN);
+    if (prevSP30r2 == LOW && r2 == HIGH) {
+        sp30Heating = 1 - sp30Heating;
+        Serial.print("sp30Heating: ");
+        Serial.println(sp30Heating);
+    }
+    if (r2 != prevSP30r2) {
+        prevSP30r2 = r2;
+        digitalWrite(HEATING_OUT_PIN, sp30Heating == 1 ? HIGH : LOW);
+    }
+}
+
 void handleSwitch(unsigned long timerNow) {
     if ((switchValue % 10) != lastFanLevel) {
         fanRelayOn(timerNow);
@@ -208,12 +258,13 @@ void handleSwitch(unsigned long timerNow) {
 }
 
 void fanRelayOn(unsigned long timerNow) {
-    if (timerNow - fanRelayOnTimer > MIN_SWITCH_DURATION) {
+    if (timerNow - fanRelayOnTimer > (2 * relay_duration_config)) {
         fanRelayOnTimer = timerNow;
         if (relayTimer1 == 0) {
             relayTimer1 = timerNow;
             ledBlink(timerNow);
             digitalWrite(RELAY_1_PIN, HIGH);
+            simulateSP30();
             Serial.print("r1 on ");
             Serial.println(timerNow);
         }
@@ -221,8 +272,9 @@ void fanRelayOn(unsigned long timerNow) {
 }
 
 void fanRelayOff(unsigned long timerNow) {
-    if (relayTimer1 > 0 && (timerNow - relayTimer1 > DEFAULT_RELAY_DURATION)) {
+    if (relayTimer1 > 0 && (timerNow - relayTimer1 > relay_duration_config)) {
         digitalWrite(RELAY_1_PIN, LOW);
+        simulateSP30();
         ledBlink(timerNow);
         Serial.print("r1 off ");
         Serial.println(timerNow);
@@ -231,12 +283,13 @@ void fanRelayOff(unsigned long timerNow) {
 }
 
 void heatingRelayOn(unsigned long timerNow) {
-    if (timerNow - heatingRelayOnTimer > MIN_SWITCH_DURATION) {
+    if (timerNow - heatingRelayOnTimer > (2 * relay_duration_config)) {
         heatingRelayOnTimer = timerNow;
         if (relayTimer2 == 0) {
             relayTimer2 = timerNow;
             ledBlink(timerNow);
             digitalWrite(RELAY_2_PIN, HIGH);
+            simulateSP30();
             Serial.print("r2 on ");
             Serial.println(timerNow);
         }
@@ -244,8 +297,9 @@ void heatingRelayOn(unsigned long timerNow) {
 }
 
 void heatingRelayOff(unsigned long timerNow) {
-    if (relayTimer2 > 0 && (timerNow - relayTimer2 > DEFAULT_RELAY_DURATION)) {
+    if (relayTimer2 > 0 && (timerNow - relayTimer2 > relay_duration_config)) {
         digitalWrite(RELAY_2_PIN, LOW);
+        simulateSP30();
         ledBlink(timerNow);
         Serial.print("r2 off ");
         Serial.println(timerNow);
@@ -256,41 +310,49 @@ void heatingRelayOff(unsigned long timerNow) {
 void checkFanLevel(unsigned long timerNow) {
     int fl1 = analogRead(FAN_LEVEL_1_PIN);
     int fl2 = analogRead(FAN_LEVEL_2_PIN);
-    byte curFanLevel = fl1 < 400 && fl2 > 400 ? 3 : (fl1 > 400 && fl2 < 400 ? 2 : 1);
-    if ((curFanLevel != lastFanLevel && ((timerNow - fanLevelTimer) > MIN_UPDATE_DURATION)) ||
+    lastFanLevel = fl1 < 400 && fl2 > 400 ? 3 : (fl1 > 400 && fl2 < 400 ? 2 : 1);
+    if ((lastFanLevel != lastFanLevelReported && ((timerNow - fanLevelTimer) > MIN_UPDATE_DURATION)) ||
         ((timerNow - fanLevelTimer) > status_report_interval_config * 1000)) {
-        lastFanLevel = curFanLevel;
+        lastFanLevelReported = lastFanLevel;
         fanLevelTimer = timerNow;
         ledBlink(timerNow);
         zunoSendReport(2);
-        Serial.print("fan level: ");
-        Serial.println(lastFanLevel);
+        //Serial.print("fan level: ");
+        //Serial.println(lastFanLevel);
     }
     if (timerNow - fanLevelTimer2 > 2000) {
         fanLevelTimer2 = timerNow;
         Serial.print("fl1: ");
         Serial.print(fl1);
         Serial.print(", fl2: ");
-        Serial.println(fl2);
+        Serial.print(fl2);
+        Serial.print(", fan level: ");
+        Serial.print(lastFanLevel);
+        Serial.print(", switchValue: ");
+        Serial.println(switchValue);
     }
 }
 
 void checkHeating(unsigned long timerNow) {
     int heat = analogRead(HEATING_PIN);
-    byte curHeating = heat > 400 ? 10 : 0;
-    if ((curHeating != lastHeating && ((timerNow - heatingTimer) > MIN_UPDATE_DURATION)) ||
+    lastHeating = heat > 400 ? 10 : 0;
+    if ((lastHeating != lastHeatingReported && ((timerNow - heatingTimer) > MIN_UPDATE_DURATION)) ||
         ((timerNow - heatingTimer) > status_report_interval_config * 1000)) {
-        lastHeating = curHeating;
+        lastHeatingReported = lastHeating;
         heatingTimer = timerNow;
         ledBlink(timerNow);
         zunoSendReport(3);
-        Serial.print("heating: ");
-        Serial.println(lastHeating);
+        //Serial.print("heating: ");
+        //Serial.println(lastHeating);
     }
     if (timerNow - heatingTimer2 > 2000) {
         heatingTimer2 = timerNow;
         Serial.print("heat: ");
-        Serial.println(heat);
+        Serial.print(heat);
+        Serial.print(", heating: ");
+        Serial.print(lastHeating);
+        Serial.print(", switchValue: ");
+        Serial.println(switchValue);
     }
 }
 
@@ -301,10 +363,10 @@ void checkTemperatures(unsigned long timerNow) {
             temperature[i] = 1600 + i * 200 + (timerNow % 100) + temperatureCalibration[i];
             ledBlink(timerNow);
             zunoSendReport(i + 4);
-            Serial.print("temp ");
-            Serial.print(i);
-            Serial.print(" ");
-            Serial.println(temperature[i]);
+            //Serial.print("temp ");
+            //Serial.print(i);
+            //Serial.print(" ");
+            //Serial.println(temperature[i]);
         }
     }
 }
