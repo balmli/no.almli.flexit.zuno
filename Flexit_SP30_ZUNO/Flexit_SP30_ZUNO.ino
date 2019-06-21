@@ -1,6 +1,8 @@
 
 #include "ZUNO_DS18B20.h"
 
+#define DEBUG_2
+
 #define RELAY_1_PIN         9
 #define RELAY_2_PIN         10
 #define DS18B20_BUS_PIN     11
@@ -40,7 +42,6 @@ byte sp30Heating = 0;
 byte prevSP30r1 = LOW;
 byte prevSP30r2 = LOW;
 
-unsigned long lastChangedSwitch = 0;
 unsigned long fanRelayOnTimer = 0;
 unsigned long heatingRelayOnTimer = 0;
 unsigned long relayTimer1 = 0;
@@ -57,6 +58,8 @@ word status_report_interval_config;
 word temperature_report_interval_config;
 word temperature_report_threshold_config;
 word relay_duration_config;
+word enabled_config;
+word default_config_set_config;
 
 ZUNO_SETUP_SLEEPING_MODE(ZUNO_SLEEPING_MODE_ALWAYS_AWAKE);
 ZUNO_SETUP_PRODUCT_ID(0xC0, 0xC0);
@@ -120,49 +123,60 @@ void setup() {
 
 void fetchConfig() {
     status_report_interval_config = zunoLoadCFGParam(64);
-    if (status_report_interval_config > 32767) {
-        status_report_interval_config = 30;
-        zunoSaveCFGParam(64, status_report_interval_config);
-    }
     temperature_report_interval_config = zunoLoadCFGParam(65);
-    if (temperature_report_interval_config > 32767) {
-        temperature_report_interval_config = 60;
-        zunoSaveCFGParam(65, temperature_report_interval_config);
-    }
     temperature_report_threshold_config = zunoLoadCFGParam(66);
-    if (temperature_report_threshold_config > 100) {
-        temperature_report_threshold_config = 2;
-        zunoSaveCFGParam(66, temperature_report_threshold_config);
-    }
     relay_duration_config = zunoLoadCFGParam(67);
-    if (relay_duration_config > 5000) {
-        relay_duration_config = 500;
-        zunoSaveCFGParam(67, relay_duration_config);
-    }
+    enabled_config = zunoLoadCFGParam(68);
     for (byte i = 0; i < TEMP_SENSORS; i++) {
         temperatureCalibration[i] = zunoLoadCFGParam(70 + i);
-        if (temperatureCalibration[i] > 400) {
+    }
+
+    default_config_set_config = zunoLoadCFGParam(96);
+    if (default_config_set_config != 1) {
+        status_report_interval_config = 30;
+        zunoSaveCFGParam(64, status_report_interval_config);
+
+        temperature_report_interval_config = 60;
+        zunoSaveCFGParam(65, temperature_report_interval_config);
+
+        temperature_report_threshold_config = 2;
+        zunoSaveCFGParam(66, temperature_report_threshold_config);
+
+        relay_duration_config = 500;
+        zunoSaveCFGParam(67, relay_duration_config);
+
+        enabled_config = 0;
+        zunoSaveCFGParam(68, enabled_config);
+
+        for (byte i = 0; i < TEMP_SENSORS; i++) {
             temperatureCalibration[i] = 0;
             zunoSaveCFGParam(70 + i, temperatureCalibration[i]);
         }
+
+        default_config_set_config = 1;
+        zunoSaveCFGParam(96, default_config_set_config);
     }
 }
 
 void loop() {
-    unsigned long timerNow = millis();
-    handleSwitch(timerNow);
-    checkFanLevel(timerNow);
-    checkHeating(timerNow);
-    checkTemperatures(timerNow);
-    ledBlinkOff(timerNow);
-    //listConfig(timerNow);
+    if (enabled_config == 1) {
+        unsigned long timerNow = millis();
+        handleSwitch(timerNow);
+        checkFanLevel(timerNow);
+        checkHeating(timerNow);
+        checkTemperatures(timerNow);
+        ledBlinkOff(timerNow);
+        listConfig(timerNow);
+    }
 }
 
 void config_parameter_changed(byte param, word value) {
+#ifdef DEBUG
     Serial.print("config ");
     Serial.print(param);
     Serial.print(" = ");
     Serial.println(value);
+#endif
 
     if (param == 64) {
         status_report_interval_config = value;
@@ -176,12 +190,19 @@ void config_parameter_changed(byte param, word value) {
     if (param == 67) {
         relay_duration_config = value;
     }
+    if (param == 68) {
+        enabled_config = value;
+        if (enabled_config < 0 || enabled_config > 1) {
+            enabled_config = 0;
+        }
+    }
     if (param >= 70 && param >= 73) {
         temperatureCalibration[param - 70] = value;
     }
 }
 
 void listConfig(unsigned long timerNow) {
+#ifdef DEBUG
     if (timerNow - listConfigTimer > MIN_UPDATE_DURATION) {
         listConfigTimer = timerNow;
         Serial.print("status_report_interval_config: ");
@@ -192,6 +213,8 @@ void listConfig(unsigned long timerNow) {
         Serial.println(temperature_report_threshold_config);
         Serial.print("relay_duration_config: ");
         Serial.println(relay_duration_config);
+        Serial.print("enabled_config: ");
+        Serial.println(enabled_config);
         for (byte i = 0; i < TEMP_SENSORS; i++) {
             Serial.print("temperatureCalibration[");
             Serial.print(i);
@@ -199,6 +222,7 @@ void listConfig(unsigned long timerNow) {
             Serial.println(temperatureCalibration[i]);
         }
     }
+#endif
 }
 
 void ledBlink(unsigned long timerNow) {
@@ -223,8 +247,10 @@ void simulateSP30() {
         if (sp30FanLevel > 3) {
             sp30FanLevel = 1;
         }
+#ifdef DEBUG
         Serial.print("sp30FanLevel: ");
         Serial.println(sp30FanLevel);
+#endif
     }
     if (r1 != prevSP30r1) {
         prevSP30r1 = r1;
@@ -236,8 +262,10 @@ void simulateSP30() {
     byte r2 = digitalRead(RELAY_IN_2_PIN);
     if (prevSP30r2 == LOW && r2 == HIGH) {
         sp30Heating = 1 - sp30Heating;
+#ifdef DEBUG
         Serial.print("sp30Heating: ");
         Serial.println(sp30Heating);
+#endif
     }
     if (r2 != prevSP30r2) {
         prevSP30r2 = r2;
@@ -265,8 +293,10 @@ void fanRelayOn(unsigned long timerNow) {
             ledBlink(timerNow);
             digitalWrite(RELAY_1_PIN, HIGH);
             simulateSP30();
+#ifdef DEBUG
             Serial.print("r1 on ");
             Serial.println(timerNow);
+#endif
         }
     }
 }
@@ -276,8 +306,10 @@ void fanRelayOff(unsigned long timerNow) {
         digitalWrite(RELAY_1_PIN, LOW);
         simulateSP30();
         ledBlink(timerNow);
+#ifdef DEBUG
         Serial.print("r1 off ");
         Serial.println(timerNow);
+#endif
         relayTimer1 = 0;
     }
 }
@@ -290,8 +322,10 @@ void heatingRelayOn(unsigned long timerNow) {
             ledBlink(timerNow);
             digitalWrite(RELAY_2_PIN, HIGH);
             simulateSP30();
+#ifdef DEBUG
             Serial.print("r2 on ");
             Serial.println(timerNow);
+#endif
         }
     }
 }
@@ -301,8 +335,10 @@ void heatingRelayOff(unsigned long timerNow) {
         digitalWrite(RELAY_2_PIN, LOW);
         simulateSP30();
         ledBlink(timerNow);
+#ifdef DEBUG
         Serial.print("r2 off ");
         Serial.println(timerNow);
+#endif
         relayTimer2 = 0;
     }
 }
@@ -317,9 +353,8 @@ void checkFanLevel(unsigned long timerNow) {
         fanLevelTimer = timerNow;
         ledBlink(timerNow);
         zunoSendReport(2);
-        //Serial.print("fan level: ");
-        //Serial.println(lastFanLevel);
     }
+#ifdef DEBUG_2
     if (timerNow - fanLevelTimer2 > 2000) {
         fanLevelTimer2 = timerNow;
         Serial.print("fl1: ");
@@ -331,6 +366,7 @@ void checkFanLevel(unsigned long timerNow) {
         Serial.print(", switchValue: ");
         Serial.println(switchValue);
     }
+#endif
 }
 
 void checkHeating(unsigned long timerNow) {
@@ -342,9 +378,8 @@ void checkHeating(unsigned long timerNow) {
         heatingTimer = timerNow;
         ledBlink(timerNow);
         zunoSendReport(3);
-        //Serial.print("heating: ");
-        //Serial.println(lastHeating);
     }
+#ifdef DEBUG_2
     if (timerNow - heatingTimer2 > 2000) {
         heatingTimer2 = timerNow;
         Serial.print("heat: ");
@@ -354,6 +389,7 @@ void checkHeating(unsigned long timerNow) {
         Serial.print(", switchValue: ");
         Serial.println(switchValue);
     }
+#endif
 }
 
 void checkTemperatures(unsigned long timerNow) {
@@ -363,16 +399,17 @@ void checkTemperatures(unsigned long timerNow) {
             temperature[i] = 1600 + i * 200 + (timerNow % 100) + temperatureCalibration[i];
             ledBlink(timerNow);
             zunoSendReport(i + 4);
-            //Serial.print("temp ");
-            //Serial.print(i);
-            //Serial.print(" ");
-            //Serial.println(temperature[i]);
+#ifdef DEBUG
+            Serial.print("temp[");
+            Serial.print(i);
+            Serial.print("]: ");
+            Serial.println(temperature[i]);
+#endif
         }
     }
 }
 
 void setterSwitch(byte value) {
-    lastChangedSwitch = millis();
     switchValue = value;
 }
 
