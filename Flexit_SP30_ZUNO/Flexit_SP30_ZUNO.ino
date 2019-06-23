@@ -1,6 +1,7 @@
 
 #include "ZUNO_DS18B20.h"
 
+#define DEBUG
 #define DEBUG_2
 #define DEBUG_3
 
@@ -355,6 +356,10 @@ void checkFanLevel(unsigned long timerNow) {
         fanLevelTimer = timerNow;
         ledBlink(timerNow);
         zunoSendReport(2);
+#ifdef DEBUG_2
+        Serial.print("lastFanLevel: ");
+        Serial.println(lastFanLevel);
+#endif
     }
 #ifdef DEBUG_2
     if (timerNow - fanLevelTimer2 > 2000) {
@@ -380,6 +385,10 @@ void checkHeating(unsigned long timerNow) {
         heatingTimer = timerNow;
         ledBlink(timerNow);
         zunoSendReport(3);
+#ifdef DEBUG_2
+        Serial.print("lastHeating: ");
+        Serial.println(lastHeating);
+#endif
     }
 #ifdef DEBUG_2
     if (timerNow - heatingTimer2 > 2000) {
