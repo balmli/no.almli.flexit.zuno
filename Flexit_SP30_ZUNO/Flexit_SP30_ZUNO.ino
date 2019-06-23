@@ -2,6 +2,7 @@
 #include "ZUNO_DS18B20.h"
 
 #define DEBUG_2
+#define DEBUG_3
 
 #define RELAY_1_PIN         9
 #define RELAY_2_PIN         10
@@ -29,6 +30,7 @@ byte addresses[ADDR_SIZE * TEMP_SENSORS];
 #define ADDR(i) (&addresses[i * ADDR_SIZE])
 byte number_of_sensors;
 word temperature[TEMP_SENSORS];
+word temperatureReported[TEMP_SENSORS];
 word temperatureCalibration[TEMP_SENSORS];
 
 byte switchValue = 1;
@@ -50,7 +52,7 @@ unsigned long fanLevelTimer = 0;
 unsigned long fanLevelTimer2 = 0;
 unsigned long heatingTimer = 0;
 unsigned long heatingTimer2 = 0;
-unsigned long tempTimer = 0;
+unsigned long temperatureTimer[TEMP_SENSORS];
 unsigned long ledTimer = 0;
 unsigned long listConfigTimer = 0;
 
@@ -136,7 +138,7 @@ void fetchConfig() {
         status_report_interval_config = 30;
         zunoSaveCFGParam(64, status_report_interval_config);
 
-        temperature_report_interval_config = 60;
+        temperature_report_interval_config = 300;
         zunoSaveCFGParam(65, temperature_report_interval_config);
 
         temperature_report_threshold_config = 2;
@@ -393,13 +395,18 @@ void checkHeating(unsigned long timerNow) {
 }
 
 void checkTemperatures(unsigned long timerNow) {
-    if (timerNow - tempTimer > MIN_UPDATE_DURATION) {
-        tempTimer = timerNow;
-        for (byte i = 0; i < TEMP_SENSORS; i++) {
-            temperature[i] = 1600 + i * 200 + (timerNow % 100) + temperatureCalibration[i];
+    for (byte i = 0; i < number_of_sensors && i < TEMP_SENSORS; i++) {
+        temperature[i] = (ds18b20.getTemperature(ADDR(i)) * 100) + temperatureCalibration[i];
+
+        if (((temperature[i] > (temperatureReported[i] + temperature_report_threshold_config) ||
+              temperature[i] < (temperatureReported[i] - temperature_report_threshold_config)) &&
+             ((timerNow - temperatureTimer[i]) > MIN_UPDATE_DURATION)) ||
+             ((timerNow - temperatureTimer[i]) > temperature_report_interval_config * 1000)) {
+            temperatureTimer[i] = timerNow;
+            temperatureReported[i] = temperature[i];
             ledBlink(timerNow);
             zunoSendReport(i + 4);
-#ifdef DEBUG
+#ifdef DEBUG_3
             Serial.print("temp[");
             Serial.print(i);
             Serial.print("]: ");
