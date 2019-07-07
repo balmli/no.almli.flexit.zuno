@@ -231,10 +231,12 @@ void checkFanLevel(unsigned long timerNow) {
     lastFanLevel = fl1 == 1 && fl2 == 0 ? 3 : (fl1 == 0 && fl2 == 1 ? 2 : 1);
     if ((lastFanLevel != lastFanLevelReported && ((timerNow - fanLevelTimer) > MIN_STATE_UPDATE_DURATION)) ||
         ((timerNow - fanLevelTimer) > status_report_interval_config * 1000)) {
+        /*
         if (lastFanLevel != lastFanLevelReported) {
             switchValue = lastFanLevel + lastHeating;
             zunoSendReport(1);
         }
+        */
         lastFanLevelReported = lastFanLevel;
         fanLevelTimer = timerNow;
         ledBlink(timerNow);
@@ -264,10 +266,12 @@ void checkHeating(unsigned long timerNow) {
     lastHeating = heat == 0 ? 10 : 0;
     if ((lastHeating != lastHeatingReported && ((timerNow - heatingTimer) > MIN_STATE_UPDATE_DURATION)) ||
         ((timerNow - heatingTimer) > status_report_interval_config * 1000)) {
+        /*
         if (lastHeating != lastHeatingReported) {
             switchValue = lastFanLevel + lastHeating;
             zunoSendReport(1);
         }
+        */
         lastHeatingReported = lastHeating;
         heatingTimer = timerNow;
         ledBlink(timerNow);
