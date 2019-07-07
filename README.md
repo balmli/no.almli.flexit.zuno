@@ -6,7 +6,8 @@ Flexit SP 30 panel to Z-UNO.
 
 - Z-UNO (https://products.z-wavealliance.org/products/1825)
 - 2 x 3 V relays
-- 3 optocouplers for potential free inputs
+- 3 x 817 optocouplers for potential free inputs
+- 4 x DS18B20 temperature sensors 
 - resistors
 - ISDN plug
 - wires

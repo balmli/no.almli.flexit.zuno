@@ -26,3 +26,20 @@ yellow
 red
 white
 black
+
+----
+
+c1  c2
+
+1   1       svart
+2   3       hvit
+3           rød
+4           gul
+5   4       brun            heat
+6           grønn
+7   2       blå
+8
+
+----
+
+
