@@ -107,6 +107,8 @@ void setup() {
 
     fetchConfig();
     number_of_sensors = ds18b20.findAllSensors(addresses);
+    Serial.print("Temp sensors ");
+    Serial.println(number_of_sensors);
 }
 
 void fetchConfig() {
@@ -202,6 +204,8 @@ void listConfig(unsigned long timerNow) {
         Serial.println(relay_duration_config);
         Serial.print("enabled_config: ");
         Serial.println(enabled_config);
+        Serial.print("temp sensors: ");
+        Serial.println(number_of_sensors);
         for (byte i = 0; i < TEMP_SENSORS; i++) {
             Serial.print("temperatureCalibration[");
             Serial.print(i);
