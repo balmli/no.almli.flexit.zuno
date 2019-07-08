@@ -394,6 +394,8 @@ void checkTemperatures(unsigned long timerNow) {
                 Serial.print(i);
                 Serial.print("]: ");
                 Serial.println(temperature[i]);
+                Serial.print(", cal: ");
+                Serial.println(temperatureCalibration[i]);
     #endif
             }
         }
