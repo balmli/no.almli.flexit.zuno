@@ -1,8 +1,6 @@
 
 #include "ZUNO_DS18B20.h"
 
-#define DEBUG
-#define DEBUG_2
 #define DEBUG_3
 
 #define RELAY_1_PIN         9
@@ -202,8 +200,15 @@ void config_parameter_changed(byte param, word value) {
             enabled_switch_config = 0;
         }
     }
-    if (param >= 70 && param >= 73) {
+    if (param >= 70 && param <= 73) {
         temperatureCalibration[param - 70] = value;
+#ifdef DEBUG
+    Serial.print("config ");
+    Serial.print("temperatureCalibration[");
+    Serial.print(param - 70);
+    Serial.print("] = ");
+    Serial.println(temperatureCalibration[param - 70]);
+#endif
     }
 }
 
@@ -266,7 +271,7 @@ void fanRelayOn(unsigned long timerNow) {
             relayTimer1 = timerNow;
             ledBlink(timerNow);
             digitalWrite(RELAY_1_PIN, HIGH);
-#ifdef DEBUG
+#ifdef DEBUG_2
             Serial.print("r1 on ");
             Serial.println(timerNow);
 #endif
@@ -278,7 +283,7 @@ void fanRelayOff(unsigned long timerNow) {
     if (relayTimer1 > 0 && (timerNow - relayTimer1 > relay_duration_config)) {
         digitalWrite(RELAY_1_PIN, LOW);
         ledBlink(timerNow);
-#ifdef DEBUG
+#ifdef DEBUG_2
         Serial.print("r1 off ");
         Serial.println(timerNow);
 #endif
@@ -293,7 +298,7 @@ void heatingRelayOn(unsigned long timerNow) {
             relayTimer2 = timerNow;
             ledBlink(timerNow);
             digitalWrite(RELAY_2_PIN, HIGH);
-#ifdef DEBUG
+#ifdef DEBUG_2
             Serial.print("r2 on ");
             Serial.println(timerNow);
 #endif
@@ -305,7 +310,7 @@ void heatingRelayOff(unsigned long timerNow) {
     if (relayTimer2 > 0 && (timerNow - relayTimer2 > relay_duration_config)) {
         digitalWrite(RELAY_2_PIN, LOW);
         ledBlink(timerNow);
-#ifdef DEBUG
+#ifdef DEBUG_2
         Serial.print("r2 off ");
         Serial.println(timerNow);
 #endif
@@ -317,8 +322,9 @@ void checkFanLevel(unsigned long timerNow) {
     int fl1 = digitalRead(FAN_LEVEL_1_PIN);
     int fl2 = digitalRead(FAN_LEVEL_2_PIN);
     lastFanLevel = fl1 == 1 && fl2 == 0 ? 3 : (fl1 == 0 && fl2 == 1 ? 2 : 1);
+    unsigned long repInterval = 1000 * status_report_interval_config;
     if ((lastFanLevel != lastFanLevelReported && ((timerNow - lastSetSwitchValue) > MIN_STATE_UPDATE_DURATION)) ||
-        ((timerNow - fanLevelTimer) > status_report_interval_config * 1000)) {
+        ((timerNow - fanLevelTimer) > repInterval)) {
         lastFanLevelReported = lastFanLevel;
         fanLevelTimer = timerNow;
         //switchValue = lastFanLevel + lastHeating;
@@ -326,7 +332,7 @@ void checkFanLevel(unsigned long timerNow) {
         //zunoSendReport(1);
         //delay(50);
         zunoSendReport(2);
-#ifdef DEBUG_2
+#ifdef DEBUG_3
         Serial.print("lastFanLevel: ");
         Serial.println(lastFanLevel);
 #endif
@@ -349,8 +355,9 @@ void checkFanLevel(unsigned long timerNow) {
 void checkHeating(unsigned long timerNow) {
     int heat = digitalRead(HEATING_PIN);
     lastHeating = heat == 0 ? 10 : 0;
+    unsigned long repInterval = 1000 * status_report_interval_config;
     if ((lastHeating != lastHeatingReported && ((timerNow - lastSetSwitchValue) > MIN_STATE_UPDATE_DURATION)) ||
-        ((timerNow - heatingTimer) > status_report_interval_config * 1000)) {
+        ((timerNow - heatingTimer) > repInterval)) {
         lastHeatingReported = lastHeating;
         heatingTimer = timerNow;
         //switchValue = lastFanLevel + lastHeating;
@@ -358,7 +365,7 @@ void checkHeating(unsigned long timerNow) {
         //zunoSendReport(1);
         //delay(50);
         zunoSendReport(3);
-#ifdef DEBUG_2
+#ifdef DEBUG_3
         Serial.print("lastHeating: ");
         Serial.println(lastHeating);
 #endif
@@ -379,24 +386,23 @@ void checkHeating(unsigned long timerNow) {
 void checkTemperatures(unsigned long timerNow) {
     for (byte i = 0; i < temp_sensors && i < MAX_TEMP_SENSORS; i++) {
         unsigned long timerDiff = timerNow - temperatureTimer[i];
-        if (timerDiff > MIN_TEMP_UPDATE_DURATION || timerDiff > temperature_report_interval_config * 1000) {
+        unsigned long repInterval = 1000 * temperature_report_interval_config;
+        if (timerDiff > MIN_TEMP_UPDATE_DURATION || timerDiff > repInterval) {
             temperature[i] = (ds18b20.getTemperature(ADDR(i)) * 100) + temperatureCalibration[i];
             if (((temperature[i] > (temperatureReported[i] + temperature_report_threshold_config) ||
                   temperature[i] < (temperatureReported[i] - temperature_report_threshold_config)) &&
                  (timerDiff > MIN_TEMP_UPDATE_DURATION)) ||
-                 (timerDiff > temperature_report_interval_config * 1000)) {
+                 (timerDiff > repInterval)) {
                 temperatureTimer[i] = timerNow;
                 temperatureReported[i] = temperature[i];
                 ledBlink(timerNow);
                 zunoSendReport(i + 4);
-    #ifdef DEBUG_3
+#ifdef DEBUG_3
                 Serial.print("temp[");
                 Serial.print(i);
                 Serial.print("]: ");
                 Serial.println(temperature[i]);
-                Serial.print(", cal: ");
-                Serial.println(temperatureCalibration[i]);
-    #endif
+#endif
             }
         }
     }
