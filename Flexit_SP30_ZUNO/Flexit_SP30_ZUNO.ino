@@ -13,12 +13,6 @@
 #define HEATING_PIN         A3
 #define LED_PIN             LED_BUILTIN
 
-#define RELAY_IN_1_PIN          18
-#define RELAY_IN_2_PIN          17
-#define FAN_LEVEL_OUT_1_PIN     PWM2
-#define FAN_LEVEL_OUT_2_PIN     PWM3
-#define HEATING_OUT_PIN         PWM4
-
 #define MIN_UPDATE_DURATION         30000
 #define MIN_STATE_UPDATE_DURATION   1000
 #define MIN_TEMP_UPDATE_DURATION    30000
@@ -42,11 +36,6 @@ byte lastFanLevel = 1;
 byte lastFanLevelReported = 1;
 byte lastHeating = 0;
 byte lastHeatingReported = 0;
-
-byte sp30FanLevel = 1;
-byte sp30Heating = 0;
-byte prevSP30r1 = LOW;
-byte prevSP30r2 = LOW;
 
 unsigned long fanRelayOnTimer = 0;
 unsigned long heatingRelayOnTimer = 0;
