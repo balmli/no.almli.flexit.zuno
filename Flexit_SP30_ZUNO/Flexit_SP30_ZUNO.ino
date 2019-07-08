@@ -378,22 +378,24 @@ void checkHeating(unsigned long timerNow) {
 
 void checkTemperatures(unsigned long timerNow) {
     for (byte i = 0; i < temp_sensors && i < MAX_TEMP_SENSORS; i++) {
-        temperature[i] = (ds18b20.getTemperature(ADDR(i)) * 100) + temperatureCalibration[i];
-
-        if (((temperature[i] > (temperatureReported[i] + temperature_report_threshold_config) ||
-              temperature[i] < (temperatureReported[i] - temperature_report_threshold_config)) &&
-             ((timerNow - temperatureTimer[i]) > MIN_TEMP_UPDATE_DURATION)) ||
-             ((timerNow - temperatureTimer[i]) > temperature_report_interval_config * 1000)) {
-            temperatureTimer[i] = timerNow;
-            temperatureReported[i] = temperature[i];
-            ledBlink(timerNow);
-            zunoSendReport(i + 4);
-#ifdef DEBUG_3
-            Serial.print("temp[");
-            Serial.print(i);
-            Serial.print("]: ");
-            Serial.println(temperature[i]);
-#endif
+        unsigned long timerDiff = timerNow - temperatureTimer[i];
+        if (timerDiff > MIN_TEMP_UPDATE_DURATION || timerDiff > temperature_report_interval_config * 1000) {
+            temperature[i] = (ds18b20.getTemperature(ADDR(i)) * 100) + temperatureCalibration[i];
+            if (((temperature[i] > (temperatureReported[i] + temperature_report_threshold_config) ||
+                  temperature[i] < (temperatureReported[i] - temperature_report_threshold_config)) &&
+                 (timerDiff > MIN_TEMP_UPDATE_DURATION)) ||
+                 (timerDiff > temperature_report_interval_config * 1000)) {
+                temperatureTimer[i] = timerNow;
+                temperatureReported[i] = temperature[i];
+                ledBlink(timerNow);
+                zunoSendReport(i + 4);
+    #ifdef DEBUG_3
+                Serial.print("temp[");
+                Serial.print(i);
+                Serial.print("]: ");
+                Serial.println(temperature[i]);
+    #endif
+            }
         }
     }
 }
