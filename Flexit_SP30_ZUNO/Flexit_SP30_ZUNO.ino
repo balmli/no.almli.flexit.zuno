@@ -54,6 +54,7 @@ word temperature_report_interval_config;
 word temperature_report_threshold_config;
 word relay_duration_config;
 word enabled_config;
+word enabled_switch_config;
 word default_config_set_config;
 
 ZUNO_SETUP_SLEEPING_MODE(ZUNO_SLEEPING_MODE_ALWAYS_AWAKE);
@@ -120,6 +121,7 @@ void fetchConfig() {
     temperature_report_threshold_config = zunoLoadCFGParam(66);
     relay_duration_config = zunoLoadCFGParam(67);
     enabled_config = zunoLoadCFGParam(68);
+    enabled_switch_config = zunoLoadCFGParam(69);
     for (byte i = 0; i < MAX_TEMP_SENSORS; i++) {
         temperatureCalibration[i] = zunoLoadCFGParam(70 + i);
     }
@@ -141,6 +143,9 @@ void fetchConfig() {
         enabled_config = 0;
         zunoSaveCFGParam(68, enabled_config);
 
+        enabled_switch_config = 0;
+        zunoSaveCFGParam(69, enabled_switch_config);
+
         for (byte i = 0; i < MAX_TEMP_SENSORS; i++) {
             temperatureCalibration[i] = 0;
             zunoSaveCFGParam(70 + i, temperatureCalibration[i]);
@@ -154,7 +159,9 @@ void fetchConfig() {
 void loop() {
     if (enabled_config == 1) {
         unsigned long timerNow = millis();
-        handleSwitch(timerNow);
+        if (enabled_switch_config == 1) {
+            handleSwitch(timerNow);
+        }
         checkFanLevel(timerNow);
         checkHeating(timerNow);
         checkTemperatures(timerNow);
@@ -189,6 +196,12 @@ void config_parameter_changed(byte param, word value) {
             enabled_config = 0;
         }
     }
+    if (param == 69) {
+        enabled_switch_config = value;
+        if (enabled_switch_config < 0 || enabled_switch_config > 1) {
+            enabled_switch_config = 0;
+        }
+    }
     if (param >= 70 && param >= 73) {
         temperatureCalibration[param - 70] = value;
     }
@@ -208,6 +221,8 @@ void listConfig(unsigned long timerNow) {
         Serial.println(relay_duration_config);
         Serial.print("enabled_config: ");
         Serial.println(enabled_config);
+        Serial.print("enabled_switch_config: ");
+        Serial.println(enabled_switch_config);
         Serial.print("temp sensors: ");
         Serial.println(temp_sensors);
         for (byte i = 0; i < MAX_TEMP_SENSORS; i++) {
