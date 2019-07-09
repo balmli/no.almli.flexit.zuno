@@ -264,7 +264,7 @@ void fanRelayOn(unsigned long timerNow) {
             relayTimer1 = timerNow;
             ledBlink(timerNow);
             digitalWrite(RELAY_1_PIN, HIGH);
-#ifdef DEBUG_2
+#ifdef DEBUG_3
             Serial.print(timerNow / 1000);
             Serial.print(": r1 on ");
             Serial.println(timerNow);
@@ -277,7 +277,7 @@ void fanRelayOff(unsigned long timerNow) {
     if (relayTimer1 > 0 && (timerNow - relayTimer1 > relay_duration_config)) {
         digitalWrite(RELAY_1_PIN, LOW);
         ledBlink(timerNow);
-#ifdef DEBUG_2
+#ifdef DEBUG_3
         Serial.print(timerNow / 1000);
         Serial.print(": r1 off ");
         Serial.println(timerNow);
@@ -293,7 +293,7 @@ void heatingRelayOn(unsigned long timerNow) {
             relayTimer2 = timerNow;
             ledBlink(timerNow);
             digitalWrite(RELAY_2_PIN, HIGH);
-#ifdef DEBUG_2
+#ifdef DEBUG_3
             Serial.print(timerNow / 1000);
             Serial.print(": r2 on ");
             Serial.println(timerNow);
@@ -306,7 +306,7 @@ void heatingRelayOff(unsigned long timerNow) {
     if (relayTimer2 > 0 && (timerNow - relayTimer2 > relay_duration_config)) {
         digitalWrite(RELAY_2_PIN, LOW);
         ledBlink(timerNow);
-#ifdef DEBUG_2
+#ifdef DEBUG_3
         Serial.print(timerNow / 1000);
         Serial.print(": r2 off ");
         Serial.println(timerNow);
