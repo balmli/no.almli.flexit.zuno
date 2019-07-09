@@ -265,7 +265,8 @@ void fanRelayOn(unsigned long timerNow) {
             ledBlink(timerNow);
             digitalWrite(RELAY_1_PIN, HIGH);
 #ifdef DEBUG_2
-            Serial.print("r1 on ");
+            Serial.print(timerNow / 1000);
+            Serial.print(": r1 on ");
             Serial.println(timerNow);
 #endif
         }
@@ -277,7 +278,8 @@ void fanRelayOff(unsigned long timerNow) {
         digitalWrite(RELAY_1_PIN, LOW);
         ledBlink(timerNow);
 #ifdef DEBUG_2
-        Serial.print("r1 off ");
+        Serial.print(timerNow / 1000);
+        Serial.print(": r1 off ");
         Serial.println(timerNow);
 #endif
         relayTimer1 = 0;
@@ -292,7 +294,8 @@ void heatingRelayOn(unsigned long timerNow) {
             ledBlink(timerNow);
             digitalWrite(RELAY_2_PIN, HIGH);
 #ifdef DEBUG_2
-            Serial.print("r2 on ");
+            Serial.print(timerNow / 1000);
+            Serial.print(": r2 on ");
             Serial.println(timerNow);
 #endif
         }
@@ -304,7 +307,8 @@ void heatingRelayOff(unsigned long timerNow) {
         digitalWrite(RELAY_2_PIN, LOW);
         ledBlink(timerNow);
 #ifdef DEBUG_2
-        Serial.print("r2 off ");
+        Serial.print(timerNow / 1000);
+        Serial.print(": r2 off ");
         Serial.println(timerNow);
 #endif
         relayTimer2 = 0;
@@ -327,7 +331,8 @@ void checkFanLevel(unsigned long timerNow) {
         ledBlink(timerNow);
         zunoSendReport(2);
 #ifdef DEBUG_3
-        Serial.print("lastFanLevel: ");
+        Serial.print(timerNow / 1000);
+        Serial.print(": lastFanLevel: ");
         Serial.println(lastFanLevel);
 #endif
     }
@@ -361,7 +366,8 @@ void checkHeating(unsigned long timerNow) {
         ledBlink(timerNow);
         zunoSendReport(3);
 #ifdef DEBUG_3
-        Serial.print("lastHeating: ");
+        Serial.print(timerNow / 1000);
+        Serial.print(": lastHeating: ");
         Serial.println(lastHeating);
 #endif
     }
@@ -395,7 +401,8 @@ void checkTemperatures(unsigned long timerNow) {
                 ledBlink(timerNow);
                 zunoSendReport(i + 4);
 #ifdef DEBUG_3
-                Serial.print("temp[");
+                Serial.print(timerNow / 1000);
+                Serial.print(": temp[");
                 Serial.print(i);
                 Serial.print("]: ");
                 Serial.println(temperature[i]);
