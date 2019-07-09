@@ -164,7 +164,9 @@ void loop() {
         checkHeating(timerNow);
         checkTemperatures(timerNow);
         ledBlinkOff(timerNow);
+#ifdef DEBUG
         listConfig(timerNow);
+#endif
     }
 }
 
@@ -202,18 +204,10 @@ void config_parameter_changed(byte param, word value) {
     }
     if (param >= 70 && param <= 73) {
         temperatureCalibration[param - 70] = value;
-#ifdef DEBUG
-    Serial.print("config ");
-    Serial.print("temperatureCalibration[");
-    Serial.print(param - 70);
-    Serial.print("] = ");
-    Serial.println(temperatureCalibration[param - 70]);
-#endif
     }
 }
 
 void listConfig(unsigned long timerNow) {
-#ifdef DEBUG
     if (timerNow - listConfigTimer > MIN_UPDATE_DURATION) {
         listConfigTimer = timerNow;
         Serial.print("status_report_interval_config: ");
@@ -237,7 +231,6 @@ void listConfig(unsigned long timerNow) {
             Serial.println(temperatureCalibration[i]);
         }
     }
-#endif
 }
 
 void ledBlink(unsigned long timerNow) {
