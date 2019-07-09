@@ -322,15 +322,16 @@ void checkFanLevel(unsigned long timerNow) {
     int fl1 = digitalRead(FAN_LEVEL_1_PIN);
     int fl2 = digitalRead(FAN_LEVEL_2_PIN);
     lastFanLevel = fl1 == 1 && fl2 == 0 ? 3 : (fl1 == 0 && fl2 == 1 ? 2 : 1);
-    unsigned long repInterval = 1000 * status_report_interval_config;
-    if ((lastFanLevel != lastFanLevelReported && ((timerNow - lastSetSwitchValue) > MIN_STATE_UPDATE_DURATION)) ||
-        ((timerNow - fanLevelTimer) > repInterval)) {
+
+    bool changed = lastFanLevel != lastFanLevelReported;
+    unsigned long timer1Diff = timerNow - lastSetSwitchValue;
+    unsigned long timer2Diff = timerNow - fanLevelTimer;
+    unsigned long repInterval = ((unsigned long)status_report_interval_config) * 1000;
+
+    if (changed && timer1Diff > MIN_STATE_UPDATE_DURATION || timer2Diff > repInterval) {
         lastFanLevelReported = lastFanLevel;
         fanLevelTimer = timerNow;
-        //switchValue = lastFanLevel + lastHeating;
         ledBlink(timerNow);
-        //zunoSendReport(1);
-        //delay(50);
         zunoSendReport(2);
 #ifdef DEBUG_3
         Serial.print("lastFanLevel: ");
@@ -355,15 +356,16 @@ void checkFanLevel(unsigned long timerNow) {
 void checkHeating(unsigned long timerNow) {
     int heat = digitalRead(HEATING_PIN);
     lastHeating = heat == 0 ? 10 : 0;
-    unsigned long repInterval = 1000 * status_report_interval_config;
-    if ((lastHeating != lastHeatingReported && ((timerNow - lastSetSwitchValue) > MIN_STATE_UPDATE_DURATION)) ||
-        ((timerNow - heatingTimer) > repInterval)) {
+
+    bool changed = lastHeating != lastHeatingReported;
+    unsigned long timer1Diff = timerNow - lastSetSwitchValue;
+    unsigned long timer2Diff = timerNow - heatingTimer;
+    unsigned long repInterval = ((unsigned long)status_report_interval_config) * 1000;
+
+    if (changed && timer1Diff > MIN_STATE_UPDATE_DURATION || timer2Diff > repInterval) {
         lastHeatingReported = lastHeating;
         heatingTimer = timerNow;
-        //switchValue = lastFanLevel + lastHeating;
         ledBlink(timerNow);
-        //zunoSendReport(1);
-        //delay(50);
         zunoSendReport(3);
 #ifdef DEBUG_3
         Serial.print("lastHeating: ");
@@ -385,14 +387,16 @@ void checkHeating(unsigned long timerNow) {
 
 void checkTemperatures(unsigned long timerNow) {
     for (byte i = 0; i < temp_sensors && i < MAX_TEMP_SENSORS; i++) {
+
         unsigned long timerDiff = timerNow - temperatureTimer[i];
-        unsigned long repInterval = 1000 * temperature_report_interval_config;
+        unsigned long repInterval = ((unsigned long)temperature_report_interval_config) * 1000;
+
         if (timerDiff > MIN_TEMP_UPDATE_DURATION || timerDiff > repInterval) {
+
             temperature[i] = (ds18b20.getTemperature(ADDR(i)) * 100) + temperatureCalibration[i];
-            if (((temperature[i] > (temperatureReported[i] + temperature_report_threshold_config) ||
-                  temperature[i] < (temperatureReported[i] - temperature_report_threshold_config)) &&
-                 (timerDiff > MIN_TEMP_UPDATE_DURATION)) ||
-                 (timerDiff > repInterval)) {
+            bool tempChanged = temperature[i] > temperatureReported[i] + temperature_report_threshold_config || temperature[i] < temperatureReported[i] - temperature_report_threshold_config;
+
+            if (tempChanged && timerDiff > MIN_TEMP_UPDATE_DURATION || timerDiff > repInterval) {
                 temperatureTimer[i] = timerNow;
                 temperatureReported[i] = temperature[i];
                 ledBlink(timerNow);
