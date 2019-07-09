@@ -207,6 +207,7 @@ void config_parameter_changed(byte param, word value) {
     }
 }
 
+#ifdef DEBUG
 void listConfig(unsigned long timerNow) {
     if (timerNow - listConfigTimer > MIN_UPDATE_DURATION) {
         listConfigTimer = timerNow;
@@ -232,6 +233,7 @@ void listConfig(unsigned long timerNow) {
         }
     }
 }
+#endif
 
 void ledBlink(unsigned long timerNow) {
     ledTimer = timerNow;
