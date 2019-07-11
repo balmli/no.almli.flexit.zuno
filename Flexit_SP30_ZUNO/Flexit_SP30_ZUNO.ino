@@ -126,16 +126,16 @@ void fetchConfig() {
 
     default_config_set_config = zunoLoadCFGParam(96);
     if (default_config_set_config != 1) {
-        status_report_interval_config = 30;
+        status_report_interval_config = 600;
         zunoSaveCFGParam(64, status_report_interval_config);
 
-        temperature_report_interval_config = 300;
+        temperature_report_interval_config = 600;
         zunoSaveCFGParam(65, temperature_report_interval_config);
 
-        temperature_report_threshold_config = 2;
+        temperature_report_threshold_config = 20;
         zunoSaveCFGParam(66, temperature_report_threshold_config);
 
-        relay_duration_config = 500;
+        relay_duration_config = 250;
         zunoSaveCFGParam(67, relay_duration_config);
 
         enabled_config = 0;
