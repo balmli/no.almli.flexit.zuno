@@ -394,7 +394,7 @@ void checkTemperatures(unsigned long timerNow) {
 
         if (timerDiff > MIN_TEMP_UPDATE_DURATION || timerDiff > repInterval) {
 
-            temperature[i] = (ds18b20.getTemperature(ADDR(i)) * 100) + temperatureCalibration[i];
+            temperature[i] = ((word)(ds18b20.getTemperature(ADDR(i)) * 100)) + temperatureCalibration[i];
             bool tempChanged = temperature[i] > temperatureReported[i] + temperature_report_threshold_config || temperature[i] < temperatureReported[i] - temperature_report_threshold_config;
 
             if (tempChanged && timerDiff > MIN_TEMP_UPDATE_DURATION || timerDiff > repInterval) {
