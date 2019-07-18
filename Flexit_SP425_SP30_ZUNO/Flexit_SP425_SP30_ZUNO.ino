@@ -177,9 +177,15 @@ void loop() {
         if (enabled_mode_config == 1) {
             handleMode(timerNow);
         }
-        checkFanLevel(timerNow);
-        checkHeating(timerNow);
-        checkTemperatures(timerNow);
+        getFanLevel(timerNow);
+        getHeating(timerNow);
+        reportMode(timerNow);
+        ledBlinkOff(timerNow);
+        reportFanLevel(timerNow);
+        ledBlinkOff(timerNow);
+        reportHeating(timerNow);
+        ledBlinkOff(timerNow);
+        reportTemperatures(timerNow);
         ledBlinkOff(timerNow);
 #ifdef DEBUG
         listConfig(timerNow);
@@ -281,6 +287,7 @@ void handleMode(unsigned long timerNow) {
 
             storeMode();
             modeChanged = 0;
+            delay(25);
 
 #ifdef DEBUG_3
             Serial.print(timerNow / 1000);
@@ -295,27 +302,63 @@ void handleMode(unsigned long timerNow) {
     }
 }
 
-void reportMode(unsigned long timerNow) {
-    byte mode2 = mode;
-    mode = lastFanLevel + lastHeating;
-    ledBlink(timerNow);
-    zunoSendReport(1);
-    mode = mode2;
-}
-
-void checkFanLevel(unsigned long timerNow) {
+void getFanLevel(unsigned long timerNow) {
     int fl1 = digitalRead(FAN_LEVEL_1_PIN);
     int fl2 = digitalRead(FAN_LEVEL_2_PIN);
     lastFanLevel = fl1 == 1 && fl2 == 0 ? 3 : (fl1 == 0 && fl2 == 1 ? 2 : 1);
 
+#ifdef DEBUG_2
+    if (timerNow - fanLevelTimer2 > 2000) {
+        fanLevelTimer2 = timerNow;
+        Serial.print(timerNow / 1000);
+        Serial.print(": fl1: ");
+        Serial.print(fl1);
+        Serial.print(", fl2: ");
+        Serial.println(fl2);
+        Serial.print(", fan level: ");
+        Serial.print(lastFanLevel);
+        Serial.print(", mode: ");
+        Serial.println(mode);
+    }
+#endif
+}
+
+void getHeating(unsigned long timerNow) {
+    int heat = digitalRead(HEATING_PIN);
+    lastHeating = heat == 0 ? 10 : 0;
+
+#ifdef DEBUG_2
+    if (timerNow - heatingTimer2 > 2000) {
+        heatingTimer2 = timerNow;
+        Serial.print(timerNow / 1000);
+        Serial.print(", heat: ");
+        Serial.print(heat);
+        Serial.print(", heating: ");
+        Serial.print(lastHeating);
+        Serial.print(", mode: ");
+        Serial.println(mode);
+    }
+#endif
+}
+
+void reportMode(unsigned long timerNow) {
+    bool changed = lastFanLevel != lastFanLevelReported || lastHeating != lastHeatingReported;
+    unsigned long timer1Diff = timerNow - lastSetMode;
+    if (changed && timer1Diff > MIN_STATE_UPDATE_DURATION) {
+        byte mode2 = mode;
+        mode = lastFanLevel + lastHeating;
+        ledBlink(timerNow);
+        zunoSendReport(1);
+        mode = mode2;
+    }
+}
+
+void reportFanLevel(unsigned long timerNow) {
     bool changed = lastFanLevel != lastFanLevelReported;
     unsigned long timer1Diff = timerNow - lastSetMode;
     unsigned long timer2Diff = timerNow - fanLevelTimer;
     unsigned long repInterval = ((unsigned long)status_report_interval_config) * 1000;
 
-    if (changed && timer1Diff > MIN_STATE_UPDATE_DURATION) {
-        reportMode(timerNow);
-    }
     if (changed && timer1Diff > MIN_STATE_UPDATE_DURATION || timer2Diff > repInterval) {
         lastFanLevelReported = lastFanLevel;
         fanLevelTimer = timerNow;
@@ -327,33 +370,14 @@ void checkFanLevel(unsigned long timerNow) {
         Serial.println(lastFanLevel);
 #endif
     }
-#ifdef DEBUG_2
-    if (timerNow - fanLevelTimer2 > 2000) {
-        fanLevelTimer2 = timerNow;
-        Serial.print("fl1: ");
-        Serial.print(fl1);
-        Serial.print(", fl2: ");
-        Serial.print(fl2);
-        Serial.print(", fan level: ");
-        Serial.print(lastFanLevel);
-        Serial.print(", mode: ");
-        Serial.println(mode);
-    }
-#endif
 }
 
-void checkHeating(unsigned long timerNow) {
-    int heat = digitalRead(HEATING_PIN);
-    lastHeating = heat == 0 ? 10 : 0;
-
+void reportHeating(unsigned long timerNow) {
     bool changed = lastHeating != lastHeatingReported;
     unsigned long timer1Diff = timerNow - lastSetMode;
     unsigned long timer2Diff = timerNow - heatingTimer;
     unsigned long repInterval = ((unsigned long)status_report_interval_config) * 1000;
 
-    if (changed && timer1Diff > MIN_STATE_UPDATE_DURATION) {
-        reportMode(timerNow);
-    }
     if (changed && timer1Diff > MIN_STATE_UPDATE_DURATION || timer2Diff > repInterval) {
         lastHeatingReported = lastHeating;
         heatingTimer = timerNow;
@@ -365,20 +389,9 @@ void checkHeating(unsigned long timerNow) {
         Serial.println(lastHeating);
 #endif
     }
-#ifdef DEBUG_2
-    if (timerNow - heatingTimer2 > 2000) {
-        heatingTimer2 = timerNow;
-        Serial.print("heat: ");
-        Serial.print(heat);
-        Serial.print(", heating: ");
-        Serial.print(lastHeating);
-        Serial.print(", mode: ");
-        Serial.println(mode);
-    }
-#endif
 }
 
-void checkTemperatures(unsigned long timerNow) {
+void reportTemperatures(unsigned long timerNow) {
     for (byte i = 0; i < temp_sensors && i < MAX_TEMP_SENSORS; i++) {
 
         unsigned long timerDiff = timerNow - temperatureTimer[i];
