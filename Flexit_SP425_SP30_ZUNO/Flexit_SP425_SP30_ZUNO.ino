@@ -4,14 +4,14 @@
 
 #define DEBUG_3
 
-#define RELAY_1_PIN         9
-#define RELAY_2_PIN         10
-#define RELAY_3_PIN         11
-#define DS18B20_BUS_PIN     12
-#define FAN_LEVEL_1_PIN     A1
-#define FAN_LEVEL_2_PIN     A2
-#define HEATING_PIN         A3
-#define LED_PIN             LED_BUILTIN
+#define RELAY_1_PIN                 9
+#define RELAY_2_PIN                 10
+#define RELAY_3_PIN                 11
+#define DS18B20_BUS_PIN             12
+#define FAN_LEVEL_1_PIN             A1
+#define FAN_LEVEL_2_PIN             A2
+#define HEATING_PIN                 A3
+#define LED_PIN                     LED_BUILTIN
 
 #define MIN_UPDATE_DURATION         30000
 #define MIN_STATE_UPDATE_DURATION   1000
@@ -21,8 +21,8 @@
 OneWire ow(DS18B20_BUS_PIN);
 DS18B20Sensor ds18b20(&ow);
 
-#define MAX_TEMP_SENSORS 4
-#define ADDR_SIZE 8
+#define MAX_TEMP_SENSORS            4
+#define ADDR_SIZE                   8
 byte addresses[ADDR_SIZE * MAX_TEMP_SENSORS];
 #define ADDR(i) (&addresses[i * ADDR_SIZE])
 byte temp_sensors;
@@ -30,9 +30,9 @@ word temperature[MAX_TEMP_SENSORS];
 word temperatureReported[MAX_TEMP_SENSORS];
 word temperatureCalibration[MAX_TEMP_SENSORS];
 
-unsigned long lastSetMode = 0;
-byte modeChanged = 0;
 byte mode = 1;
+byte modeChanged = 0;
+unsigned long lastSetMode = 0;
 byte lastFanLevel = 1;
 byte lastFanLevelReported = 99;
 byte lastHeating = 0;
@@ -194,13 +194,6 @@ void loop() {
 }
 
 void config_parameter_changed(byte param, word value) {
-#ifdef DEBUG
-    Serial.print("config ");
-    Serial.print(param);
-    Serial.print(" = ");
-    Serial.println(value);
-#endif
-
     if (param == 64) {
         status_report_interval_config = value;
     }
@@ -228,6 +221,13 @@ void config_parameter_changed(byte param, word value) {
     if (param >= 70 && param <= 73) {
         temperatureCalibration[param - 70] = value;
     }
+
+#ifdef DEBUG
+    Serial.print("config ");
+    Serial.print(param);
+    Serial.print(" = ");
+    Serial.println(value);
+#endif
 }
 
 #ifdef DEBUG
@@ -271,34 +271,32 @@ void ledBlinkOff(unsigned long timerNow) {
 }
 
 void handleMode(unsigned long timerNow) {
-    if (modeChanged == 1) {
-        if (timerNow - relayTimer > relay_duration_config) {
-            relayTimer = timerNow;
-            ledBlink(timerNow);
+    if ((modeChanged == 1) && ((timerNow - relayTimer) > relay_duration_config)) {
+        relayTimer = timerNow;
+        ledBlink(timerNow);
 
-            byte r1 = ((mode % 10) == 2) ? LOW : HIGH;
-            digitalWrite(RELAY_1_PIN, r1);
+        byte r1 = ((mode % 10) == 2) ? LOW : HIGH;
+        digitalWrite(RELAY_1_PIN, r1);
 
-            byte r2 = ((mode % 10) == 3) ? LOW : HIGH;
-            digitalWrite(RELAY_2_PIN, r2);
+        byte r2 = ((mode % 10) == 3) ? LOW : HIGH;
+        digitalWrite(RELAY_2_PIN, r2);
 
-            byte r3 = ((mode - mode % 10) == 10) ? LOW : HIGH;
-            digitalWrite(RELAY_3_PIN, r3);
+        byte r3 = ((mode - mode % 10) == 10) ? LOW : HIGH;
+        digitalWrite(RELAY_3_PIN, r3);
 
-            storeMode();
-            modeChanged = 0;
-            delay(25);
+        storeMode();
+        modeChanged = 0;
+        delay(25);
 
 #ifdef DEBUG_3
-            Serial.print(timerNow / 1000);
-            Serial.print(": r1: ");
-            Serial.print(r1);
-            Serial.print(", r2: ");
-            Serial.print(r2);
-            Serial.print(", r3: ");
-            Serial.println(r3);
+        Serial.print(timerNow / 1000);
+        Serial.print(": r1: ");
+        Serial.print(r1);
+        Serial.print(", r2: ");
+        Serial.print(r2);
+        Serial.print(", r3: ");
+        Serial.println(r3);
 #endif
-        }
     }
 }
 
