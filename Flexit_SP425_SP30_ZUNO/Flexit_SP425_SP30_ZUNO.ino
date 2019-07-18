@@ -348,6 +348,11 @@ void reportMode(unsigned long timerNow) {
         ledBlink(timerNow);
         zunoSendReport(1);
         mode = mode2;
+#ifdef DEBUG_3
+        Serial.print(timerNow / 1000);
+        Serial.print(": mode: ");
+        Serial.println(mode);
+#endif
     }
 }
 
