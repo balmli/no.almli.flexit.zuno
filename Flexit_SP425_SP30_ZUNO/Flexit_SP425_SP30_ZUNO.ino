@@ -1,5 +1,6 @@
 
 #include "ZUNO_DS18B20.h"
+#include "EEPROM.h"
 
 #define DEBUG_3
 
@@ -29,13 +30,13 @@ word temperature[MAX_TEMP_SENSORS];
 word temperatureReported[MAX_TEMP_SENSORS];
 word temperatureCalibration[MAX_TEMP_SENSORS];
 
-unsigned long lastSetSwitchValue = 0;
-byte switchValueChanged = 0;
-byte switchValue = 1;
+unsigned long lastSetMode = 0;
+byte modeChanged = 0;
+byte mode = 1;
 byte lastFanLevel = 1;
-byte lastFanLevelReported = 1;
+byte lastFanLevelReported = 99;
 byte lastHeating = 0;
-byte lastHeatingReported = 0;
+byte lastHeatingReported = 99;
 
 unsigned long relayTimer = 0;
 unsigned long fanLevelTimer = 0;
@@ -51,7 +52,7 @@ word temperature_report_interval_config;
 word temperature_report_threshold_config;
 word relay_duration_config;
 word enabled_config;
-word enabled_switch_config;
+word enabled_mode_config;
 word default_config_set_config;
 
 ZUNO_SETUP_SLEEPING_MODE(ZUNO_SLEEPING_MODE_ALWAYS_AWAKE);
@@ -59,7 +60,7 @@ ZUNO_SETUP_PRODUCT_ID(0xC0, 0xC0);
 ZUNO_SETUP_CFGPARAMETER_HANDLER(config_parameter_changed);
 
 ZUNO_SETUP_CHANNELS(
-    ZUNO_SWITCH_MULTILEVEL(getterSwitch, setterSwitch),
+    ZUNO_SWITCH_MULTILEVEL(getterMode, setterMode),
 
     ZUNO_SENSOR_MULTILEVEL(ZUNO_SENSOR_MULTILEVEL_TYPE_GENERAL_PURPOSE_VALUE,
         SENSOR_MULTILEVEL_SCALE_PERCENTAGE_VALUE,
@@ -111,6 +112,7 @@ void setup() {
 
     fetchConfig();
     temp_sensors = ds18b20.findAllSensors(addresses);
+    fetchMode();
 }
 
 void fetchConfig() {
@@ -119,7 +121,7 @@ void fetchConfig() {
     temperature_report_threshold_config = zunoLoadCFGParam(66);
     relay_duration_config = zunoLoadCFGParam(67);
     enabled_config = zunoLoadCFGParam(68);
-    enabled_switch_config = zunoLoadCFGParam(69);
+    enabled_mode_config = zunoLoadCFGParam(69);
     for (byte i = 0; i < MAX_TEMP_SENSORS; i++) {
         temperatureCalibration[i] = zunoLoadCFGParam(70 + i);
     }
@@ -141,8 +143,8 @@ void fetchConfig() {
         enabled_config = 0;
         zunoSaveCFGParam(68, enabled_config);
 
-        enabled_switch_config = 0;
-        zunoSaveCFGParam(69, enabled_switch_config);
+        enabled_mode_config = 0;
+        zunoSaveCFGParam(69, enabled_mode_config);
 
         for (byte i = 0; i < MAX_TEMP_SENSORS; i++) {
             temperatureCalibration[i] = 0;
@@ -154,11 +156,26 @@ void fetchConfig() {
     }
 }
 
+void fetchMode() {
+    dword addr = 0x800;
+    mode = EEPROM.read(addr);
+    if (mode < 1 || mode > 13) {
+        mode = 1;
+    }
+    modeChanged = 1;
+    zunoSendReport(1);
+}
+
+void storeMode() {
+    dword addr = 0x800;
+    EEPROM.write(addr, mode);
+}
+
 void loop() {
     if (enabled_config == 1) {
         unsigned long timerNow = millis();
-        if (enabled_switch_config == 1) {
-            handleSwitch(timerNow);
+        if (enabled_mode_config == 1) {
+            handleMode(timerNow);
         }
         checkFanLevel(timerNow);
         checkHeating(timerNow);
@@ -197,9 +214,9 @@ void config_parameter_changed(byte param, word value) {
         }
     }
     if (param == 69) {
-        enabled_switch_config = value;
-        if (enabled_switch_config < 0 || enabled_switch_config > 1) {
-            enabled_switch_config = 0;
+        enabled_mode_config = value;
+        if (enabled_mode_config < 0 || enabled_mode_config > 1) {
+            enabled_mode_config = 0;
         }
     }
     if (param >= 70 && param <= 73) {
@@ -221,8 +238,8 @@ void listConfig(unsigned long timerNow) {
         Serial.println(relay_duration_config);
         Serial.print("enabled_config: ");
         Serial.println(enabled_config);
-        Serial.print("enabled_switch_config: ");
-        Serial.println(enabled_switch_config);
+        Serial.print("enabled_mode_config: ");
+        Serial.println(enabled_mode_config);
         Serial.print("temp sensors: ");
         Serial.println(temp_sensors);
         for (byte i = 0; i < MAX_TEMP_SENSORS; i++) {
@@ -247,22 +264,25 @@ void ledBlinkOff(unsigned long timerNow) {
     }
 }
 
-void handleSwitch(unsigned long timerNow) {
-    if (switchValueChanged == 1) {
+void handleMode(unsigned long timerNow) {
+    if (modeChanged == 1) {
         if (timerNow - relayTimer > relay_duration_config) {
             relayTimer = timerNow;
             ledBlink(timerNow);
 
-            byte r1 = ((switchValue % 10) == 2) ? LOW : HIGH;
+            byte r1 = ((mode % 10) == 2) ? LOW : HIGH;
             digitalWrite(RELAY_1_PIN, r1);
 
-            byte r2 = ((switchValue % 10) == 3) ? LOW : HIGH;
+            byte r2 = ((mode % 10) == 3) ? LOW : HIGH;
             digitalWrite(RELAY_2_PIN, r2);
 
-            byte r3 = ((switchValue - switchValue % 10) == 10) ? LOW : HIGH;
+            byte r3 = ((mode - mode % 10) == 10) ? LOW : HIGH;
             digitalWrite(RELAY_3_PIN, r3);
 
-    #ifdef DEBUG_3
+            storeMode();
+            modeChanged = 0;
+
+#ifdef DEBUG_3
             Serial.print(timerNow / 1000);
             Serial.print(": r1: ");
             Serial.print(r1);
@@ -270,11 +290,17 @@ void handleSwitch(unsigned long timerNow) {
             Serial.print(r2);
             Serial.print(", r3: ");
             Serial.println(r3);
-    #endif
-
-            switchValueChanged = 0;
+#endif
         }
     }
+}
+
+void reportMode(unsigned long timerNow) {
+    byte mode2 = mode;
+    mode = lastFanLevel + lastHeating;
+    ledBlink(timerNow);
+    zunoSendReport(1);
+    mode = mode2;
 }
 
 void checkFanLevel(unsigned long timerNow) {
@@ -283,10 +309,13 @@ void checkFanLevel(unsigned long timerNow) {
     lastFanLevel = fl1 == 1 && fl2 == 0 ? 3 : (fl1 == 0 && fl2 == 1 ? 2 : 1);
 
     bool changed = lastFanLevel != lastFanLevelReported;
-    unsigned long timer1Diff = timerNow - lastSetSwitchValue;
+    unsigned long timer1Diff = timerNow - lastSetMode;
     unsigned long timer2Diff = timerNow - fanLevelTimer;
     unsigned long repInterval = ((unsigned long)status_report_interval_config) * 1000;
 
+    if (changed && timer1Diff > MIN_STATE_UPDATE_DURATION) {
+        reportMode(timerNow);
+    }
     if (changed && timer1Diff > MIN_STATE_UPDATE_DURATION || timer2Diff > repInterval) {
         lastFanLevelReported = lastFanLevel;
         fanLevelTimer = timerNow;
@@ -307,8 +336,8 @@ void checkFanLevel(unsigned long timerNow) {
         Serial.print(fl2);
         Serial.print(", fan level: ");
         Serial.print(lastFanLevel);
-        Serial.print(", switchValue: ");
-        Serial.println(switchValue);
+        Serial.print(", mode: ");
+        Serial.println(mode);
     }
 #endif
 }
@@ -318,10 +347,13 @@ void checkHeating(unsigned long timerNow) {
     lastHeating = heat == 0 ? 10 : 0;
 
     bool changed = lastHeating != lastHeatingReported;
-    unsigned long timer1Diff = timerNow - lastSetSwitchValue;
+    unsigned long timer1Diff = timerNow - lastSetMode;
     unsigned long timer2Diff = timerNow - heatingTimer;
     unsigned long repInterval = ((unsigned long)status_report_interval_config) * 1000;
 
+    if (changed && timer1Diff > MIN_STATE_UPDATE_DURATION) {
+        reportMode(timerNow);
+    }
     if (changed && timer1Diff > MIN_STATE_UPDATE_DURATION || timer2Diff > repInterval) {
         lastHeatingReported = lastHeating;
         heatingTimer = timerNow;
@@ -340,8 +372,8 @@ void checkHeating(unsigned long timerNow) {
         Serial.print(heat);
         Serial.print(", heating: ");
         Serial.print(lastHeating);
-        Serial.print(", switchValue: ");
-        Serial.println(switchValue);
+        Serial.print(", mode: ");
+        Serial.println(mode);
     }
 #endif
 }
@@ -374,14 +406,14 @@ void checkTemperatures(unsigned long timerNow) {
     }
 }
 
-void setterSwitch(byte value) {
-    switchValue = value;
-    switchValueChanged = 1;
-    lastSetSwitchValue = millis();
+void setterMode(byte value) {
+    mode = value;
+    modeChanged = 1;
+    lastSetMode = millis();
 }
 
-byte getterSwitch(void) {
-    return switchValue;
+byte getterMode(void) {
+    return mode;
 }
 
 byte getterFanLevel(void) {
