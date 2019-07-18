@@ -2,7 +2,7 @@
 #include "ZUNO_DS18B20.h"
 #include "EEPROM.h"
 
-#define DEBUG_3
+#define DEBUG_x
 
 #define RELAY_1_PIN                 9
 #define RELAY_2_PIN                 10
@@ -347,12 +347,13 @@ void reportMode(unsigned long timerNow) {
         mode = lastFanLevel + lastHeating;
         ledBlink(timerNow);
         zunoSendReport(1);
-        mode = mode2;
-#ifdef DEBUG_3
+#ifdef DEBUG_4
         Serial.print(timerNow / 1000);
         Serial.print(": mode: ");
         Serial.println(mode);
 #endif
+        delay(100);
+        mode = mode2;
     }
 }
 
@@ -367,7 +368,7 @@ void reportFanLevel(unsigned long timerNow) {
         fanLevelTimer = timerNow;
         ledBlink(timerNow);
         zunoSendReport(2);
-#ifdef DEBUG_3
+#ifdef DEBUG_4
         Serial.print(timerNow / 1000);
         Serial.print(": lastFanLevel: ");
         Serial.println(lastFanLevel);
@@ -386,7 +387,7 @@ void reportHeating(unsigned long timerNow) {
         heatingTimer = timerNow;
         ledBlink(timerNow);
         zunoSendReport(3);
-#ifdef DEBUG_3
+#ifdef DEBUG_4
         Serial.print(timerNow / 1000);
         Serial.print(": lastHeating: ");
         Serial.println(lastHeating);
