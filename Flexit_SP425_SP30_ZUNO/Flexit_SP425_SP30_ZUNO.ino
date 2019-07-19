@@ -99,6 +99,77 @@ ZUNO_SETUP_CHANNELS(
         getterTemp4)
 );
 
+void setterMode(byte value) {
+    mode = value;
+    modeChanged = 1;
+    lastSetMode = millis();
+}
+
+byte getterMode(void) {
+    return mode;
+}
+
+byte getterFanLevel(void) {
+  return lastFanLevel;
+}
+
+byte getterHeating(void) {
+  return lastHeating;
+}
+
+word getterTemp1() {
+    return temperature[0];
+}
+
+word getterTemp2() {
+    return temperature[1];
+}
+
+word getterTemp3() {
+    return temperature[2];
+}
+
+word getterTemp4() {
+    return temperature[3];
+}
+
+void config_parameter_changed(byte param, word value) {
+    if (param == 64) {
+        status_report_interval_config = value;
+    }
+    if (param == 65) {
+        temperature_report_interval_config = value;
+    }
+    if (param == 66) {
+        temperature_report_threshold_config = value;
+    }
+    if (param == 67) {
+        relay_duration_config = value;
+    }
+    if (param == 68) {
+        enabled_config = value;
+        if (enabled_config < 0 || enabled_config > 1) {
+            enabled_config = 0;
+        }
+    }
+    if (param == 69) {
+        enabled_mode_config = value;
+        if (enabled_mode_config < 0 || enabled_mode_config > 1) {
+            enabled_mode_config = 0;
+        }
+    }
+    if (param >= 70 && param <= 73) {
+        temperatureCalibration[param - 70] = value;
+    }
+
+#ifdef DEBUG
+    Serial.print("config ");
+    Serial.print(param);
+    Serial.print(" = ");
+    Serial.println(value);
+#endif
+}
+
 void setup() {
     pinMode(RELAY_1_PIN, OUTPUT);
     pinMode(RELAY_2_PIN, OUTPUT);
@@ -174,6 +245,18 @@ void storeMode() {
     EEPROM.write(addr, mode);
 }
 
+void ledBlink(unsigned long timerNow) {
+    ledTimer = timerNow;
+    digitalWrite(LED_PIN, HIGH);
+}
+
+void ledBlinkOff(unsigned long timerNow) {
+    if (ledTimer > 0 && (timerNow - ledTimer > LED_BLINK_DURATION)) {
+        ledTimer = 0;
+        digitalWrite(LED_PIN, LOW);
+    }
+}
+
 void loop() {
     if (enabled_config == 1) {
         unsigned long timerNow = millis();
@@ -193,83 +276,6 @@ void loop() {
 #ifdef DEBUG
         listConfig(timerNow);
 #endif
-    }
-}
-
-void config_parameter_changed(byte param, word value) {
-    if (param == 64) {
-        status_report_interval_config = value;
-    }
-    if (param == 65) {
-        temperature_report_interval_config = value;
-    }
-    if (param == 66) {
-        temperature_report_threshold_config = value;
-    }
-    if (param == 67) {
-        relay_duration_config = value;
-    }
-    if (param == 68) {
-        enabled_config = value;
-        if (enabled_config < 0 || enabled_config > 1) {
-            enabled_config = 0;
-        }
-    }
-    if (param == 69) {
-        enabled_mode_config = value;
-        if (enabled_mode_config < 0 || enabled_mode_config > 1) {
-            enabled_mode_config = 0;
-        }
-    }
-    if (param >= 70 && param <= 73) {
-        temperatureCalibration[param - 70] = value;
-    }
-
-#ifdef DEBUG
-    Serial.print("config ");
-    Serial.print(param);
-    Serial.print(" = ");
-    Serial.println(value);
-#endif
-}
-
-#ifdef DEBUG
-void listConfig(unsigned long timerNow) {
-    if (timerNow - listConfigTimer > MIN_UPDATE_DURATION) {
-        listConfigTimer = timerNow;
-        Serial.print("status_report_interval_config: ");
-        Serial.println(status_report_interval_config);
-        Serial.print("temperature_report_interval_config: ");
-        Serial.println(temperature_report_interval_config);
-        Serial.print("temperature_report_threshold_config: ");
-        Serial.println(temperature_report_threshold_config);
-        Serial.print("relay_duration_config: ");
-        Serial.println(relay_duration_config);
-        Serial.print("enabled_config: ");
-        Serial.println(enabled_config);
-        Serial.print("enabled_mode_config: ");
-        Serial.println(enabled_mode_config);
-        Serial.print("temp sensors: ");
-        Serial.println(temp_sensors);
-        for (byte i = 0; i < MAX_TEMP_SENSORS; i++) {
-            Serial.print("temperatureCalibration[");
-            Serial.print(i);
-            Serial.print("]: ");
-            Serial.println(temperatureCalibration[i]);
-        }
-    }
-}
-#endif
-
-void ledBlink(unsigned long timerNow) {
-    ledTimer = timerNow;
-    digitalWrite(LED_PIN, HIGH);
-}
-
-void ledBlinkOff(unsigned long timerNow) {
-    if (ledTimer > 0 && (timerNow - ledTimer > LED_BLINK_DURATION)) {
-        ledTimer = 0;
-        digitalWrite(LED_PIN, LOW);
     }
 }
 
@@ -345,18 +351,19 @@ void getHeating(unsigned long timerNow) {
 void reportMode(unsigned long timerNow) {
     bool changed = lastFanLevel != lastFanLevelReported || lastHeating != lastHeatingReported;
     unsigned long timer1Diff = timerNow - lastSetMode;
+
     if (changed && timer1Diff > MIN_STATE_UPDATE_DURATION) {
         byte mode2 = mode;
         mode = lastFanLevel + lastHeating;
         ledBlink(timerNow);
         zunoSendReport(1);
+        delay(100);
+        mode = mode2;
 #ifdef DEBUG_4
         Serial.print(timerNow / 1000);
         Serial.print(": mode: ");
         Serial.println(mode);
 #endif
-        delay(100);
-        mode = mode2;
     }
 }
 
@@ -407,9 +414,9 @@ void reportTemperatures(unsigned long timerNow) {
         if (timerDiff > MIN_TEMP_UPDATE_DURATION || timerDiff > repInterval) {
 
             temperature[i] = ((word)(ds18b20.getTemperature(ADDR(i)) * 100)) + temperatureCalibration[i];
-            bool tempChanged = temperature[i] > temperatureReported[i] + temperature_report_threshold_config || temperature[i] < temperatureReported[i] - temperature_report_threshold_config;
+            bool changed = temperature[i] > temperatureReported[i] + temperature_report_threshold_config || temperature[i] < temperatureReported[i] - temperature_report_threshold_config;
 
-            if (tempChanged && timerDiff > MIN_TEMP_UPDATE_DURATION || timerDiff > repInterval) {
+            if (changed && timerDiff > MIN_TEMP_UPDATE_DURATION || timerDiff > repInterval) {
                 temperatureTimer[i] = timerNow;
                 temperatureReported[i] = temperature[i];
                 ledBlink(timerNow);
@@ -426,38 +433,30 @@ void reportTemperatures(unsigned long timerNow) {
     }
 }
 
-void setterMode(byte value) {
-    mode = value;
-    modeChanged = 1;
-    lastSetMode = millis();
+#ifdef DEBUG
+void listConfig(unsigned long timerNow) {
+    if (timerNow - listConfigTimer > MIN_UPDATE_DURATION) {
+        listConfigTimer = timerNow;
+        Serial.print("status_report_interval_config: ");
+        Serial.println(status_report_interval_config);
+        Serial.print("temperature_report_interval_config: ");
+        Serial.println(temperature_report_interval_config);
+        Serial.print("temperature_report_threshold_config: ");
+        Serial.println(temperature_report_threshold_config);
+        Serial.print("relay_duration_config: ");
+        Serial.println(relay_duration_config);
+        Serial.print("enabled_config: ");
+        Serial.println(enabled_config);
+        Serial.print("enabled_mode_config: ");
+        Serial.println(enabled_mode_config);
+        Serial.print("temp sensors: ");
+        Serial.println(temp_sensors);
+        for (byte i = 0; i < MAX_TEMP_SENSORS; i++) {
+            Serial.print("temperatureCalibration[");
+            Serial.print(i);
+            Serial.print("]: ");
+            Serial.println(temperatureCalibration[i]);
+        }
+    }
 }
-
-byte getterMode(void) {
-    return mode;
-}
-
-byte getterFanLevel(void) {
-  return lastFanLevel;
-}
-
-byte getterHeating(void) {
-  return lastHeating;
-}
-
-word getterTemp1() {
-    return temperature[0];
-}
-
-word getterTemp2() {
-    return temperature[1];
-}
-
-word getterTemp3() {
-    return temperature[2];
-}
-
-word getterTemp4() {
-    return temperature[3];
-}
-
-
+#endif
