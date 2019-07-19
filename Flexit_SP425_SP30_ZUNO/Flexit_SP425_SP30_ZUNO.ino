@@ -100,16 +100,19 @@ ZUNO_SETUP_CHANNELS(
 );
 
 void setup() {
-    Serial.begin();
     pinMode(RELAY_1_PIN, OUTPUT);
     pinMode(RELAY_2_PIN, OUTPUT);
     pinMode(RELAY_3_PIN, OUTPUT);
+    digitalWrite(RELAY_1_PIN, HIGH);
+    digitalWrite(RELAY_2_PIN, HIGH);
+    digitalWrite(RELAY_3_PIN, HIGH);
     pinMode(LED_PIN, OUTPUT);
 
     pinMode(FAN_LEVEL_1_PIN, INPUT_PULLUP);
     pinMode(FAN_LEVEL_2_PIN, INPUT_PULLUP);
     pinMode(HEATING_PIN, INPUT_PULLUP);
 
+    Serial.begin();
     fetchConfig();
     temp_sensors = ds18b20.findAllSensors(addresses);
     fetchMode();
