@@ -17,6 +17,8 @@ Flexit SP 30 panel to Z-UNO.
 
 ### Build instructions:
 
+<img src="https://balmli.github.io/no.almli.flexit.zuno/circuit.png" width="1173" height="787">
+
 Connect the three 3 V relays to the Z-UNO:
 - Z-UNO, pin  9: to relay 1 in
 - Z-UNO, pin 10: to relay 2 in
