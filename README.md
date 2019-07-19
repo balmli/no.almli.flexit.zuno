@@ -4,10 +4,10 @@ Flexit SP 30 panel to Z-UNO.
 
 ### Hardware
 
-- Z-UNO (https://products.z-wavealliance.org/products/1825)
-- [SP425](https://www.flexit.no/produkter/ventilasjonsaggregat/utgatte_modeller/tilbehor_aggregater_utgatte_modeller/sp425_styringskort_for_sentralstyring_sd/styringskort_datastyring_sp425/) controller board
+- [Z-UNO](https://products.z-wavealliance.org/products/1825)
+- [SP425 controller board](https://www.flexit.no/produkter/ventilasjonsaggregat/utgatte_modeller/tilbehor_aggregater_utgatte_modeller/sp425_styringskort_for_sentralstyring_sd/styringskort_datastyring_sp425/)
 - 3 x 3 V relays
-- 3 x 817 optocouplers for potential free inputs
+- 3 x 817 optocouplers
 - 4 x DS18B20 temperature sensors 
 - RJ45 splitter
 - RJ45 wires
