@@ -265,8 +265,6 @@ void loop() {
         }
         getFanLevel(timerNow);
         getHeating(timerNow);
-        reportMode(timerNow);
-        ledBlinkOff(timerNow);
         reportFanLevel(timerNow);
         ledBlinkOff(timerNow);
         reportHeating(timerNow);
@@ -346,25 +344,6 @@ void getHeating(unsigned long timerNow) {
         Serial.println(mode);
     }
 #endif
-}
-
-void reportMode(unsigned long timerNow) {
-    bool changed = lastFanLevel != lastFanLevelReported || lastHeating != lastHeatingReported;
-    unsigned long timer1Diff = timerNow - lastSetMode;
-
-    if (changed && timer1Diff > MIN_STATE_UPDATE_DURATION) {
-        byte mode2 = mode;
-        mode = lastFanLevel + lastHeating;
-        ledBlink(timerNow);
-        zunoSendReport(1);
-        delay(100);
-        mode = mode2;
-#ifdef DEBUG_4
-        Serial.print(timerNow / 1000);
-        Serial.print(": mode: ");
-        Serial.println(mode);
-#endif
-    }
 }
 
 void reportFanLevel(unsigned long timerNow) {
